@@ -1,0 +1,53 @@
+# .gitlab-ci.yml or similar CI/CD configuration file
+
+stages:
+  - qa_tagging
+
+qa_tagging:
+  stage: qa_tagging
+  image: alpine:latest # Or any other suitable image
+  script:
+    - |
+      VERSION_FILE="version.txt"
+      BRANCH=$(git rev-parse --abbrev-ref HEAD)
+      TAG_PREFIX="v."
+      TAG_SUFFIX="_QA"
+
+      # Function to get current version
+      get_current_version() {
+          if [ -f "$VERSION_FILE" ]; then
+              cat $VERSION_FILE
+          else
+              echo "1.0.0"
+          fi
+      }
+
+      # Function to increment version
+      increment_version() {
+          local version=$1
+          local major=$(echo $version | cut -d. -f1)
+          local minor=$(echo $version | cut -d. -f2)
+          local patch=$(echo $version | cut -d. -f3 | cut -d_ -f1)
+
+          echo "$major.$minor.$((patch + 1))"
+      }
+
+      # Check if branch is QA
+      if [ "$BRANCH" == "QA" ]; then
+          # Get current version
+          CURRENT_VERSION=$(get_current_version)
+
+          # Increment version
+          NEW_VERSION=$(increment_version $CURRENT_VERSION)
+
+          # Tag the commit
+          TAG_NAME="$TAG_PREFIX$NEW_VERSION$TAG_SUFFIX"
+          git tag -a "$TAG_NAME" -m "Version $NEW_VERSION for QA"
+
+          # Update version file
+          echo $NEW_VERSION > $VERSION_FILE
+      fi
+  only:
+    - branches
+  except:
+    - tags
